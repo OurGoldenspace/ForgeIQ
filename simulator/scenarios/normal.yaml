@@ -1,0 +1,21 @@
+id: normal_operation
+seed: 42
+
+duration_seconds: 1200
+sample_rate_hz: 1
+
+baseline:
+  line_speed: 100
+  ambient_temperature: 22
+  guide_clearance_mm: 4.8
+
+events:
+
+  - time: 900
+    type: operating_change
+    parameter: line_speed
+    value: 110
+
+expected:
+  anomaly_detected: false
+  root_cause: null

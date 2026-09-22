@@ -1,0 +1,9 @@
+numpy
+pandas
+pyarrow
+PyYAML
+matplotlib
+psycopg[binary]
+fastapi
+uvicorn
+httpx

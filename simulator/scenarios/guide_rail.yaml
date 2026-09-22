@@ -1,0 +1,39 @@
+id: guide_rail_misalignment
+seed: 101
+
+duration_seconds: 1200
+sample_rate_hz: 1
+
+baseline:
+  line_speed: 100
+  ambient_temperature: 22
+  guide_clearance_mm: 4.8
+
+events:
+
+  - time: 300
+    type: maintenance_start
+    machine: M-003
+    component: COMP-001
+
+  - time: 420
+    type: parameter_change
+    parameter: guide_clearance_mm
+    old_value: 4.8
+    new_value: 4.1
+
+  - time: 480
+    type: maintenance_complete
+
+  - time: 600
+    type: physical_fault_start
+    fault: guide_rail_misalignment
+    max_severity: 0.8
+    ramp_seconds: 300
+
+expected:
+  anomaly_detected: true
+  root_cause: guide_rail_misalignment
+  affected_component: COMP-001
+  expected_document: ENG-042
+  expected_similar_incident: INC-0017
