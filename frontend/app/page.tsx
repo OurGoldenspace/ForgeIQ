@@ -1,6 +1,9 @@
 import { ScenarioNav } from "@/components/scenario-nav"
 import { TelemetryChart } from "@/components/telemetry-chart"
+import Link from "next/link"
+
 import {
+  fetchIncidents,
   fetchMaintenance,
   fetchTelemetry,
   isScenarioId,
@@ -20,19 +23,23 @@ export default async function Home({ searchParams }: HomeProps) {
 
   let points
   let maintenance
+  let incidents
   let error: string | null = null
 
   try {
     const loaded = await Promise.all([
       fetchTelemetry(scenarioId),
       fetchMaintenance(scenarioId),
+      fetchIncidents(scenarioId),
     ])
     points = loaded[0]
     maintenance = loaded[1]
+    incidents = loaded[2]
   } catch (cause) {
     error = cause instanceof Error ? cause.message : "Failed to load telemetry"
     points = []
     maintenance = []
+    incidents = []
   }
 
   const first = points[0]
@@ -62,6 +69,23 @@ export default async function Home({ searchParams }: HomeProps) {
         </section>
       ) : (
         <>
+          {incidents[0] ? (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              Persistent pressure anomaly detected.
+              {" "}
+              <Link
+                className="font-medium underline"
+                href={`/incidents/${incidents[0].incident_code}`}
+              >
+                Open {incidents[0].incident_code}
+              </Link>
+            </section>
+          ) : (
+            <section className="rounded-xl border border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+              No pressure incident created for this scenario.
+            </section>
+          )}
+
           <section className="grid gap-3 sm:grid-cols-3">
             <Stat label="Scenario" value={scenario?.label ?? scenarioId} />
             <Stat

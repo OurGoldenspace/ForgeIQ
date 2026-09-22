@@ -31,9 +31,20 @@ SELECT
     motor_current,
     line_speed,
     operating_mode,
-    scenario_id
+    scenario_id,
+    anomaly_detected
 FROM telemetry;
 """
+
+SCENARIO_ROOT_CAUSES = {
+    "guide_rail_misalignment": "guide_rail_misalignment",
+    "sensor_calibration_drift": "sensor_calibration_drift",
+}
+
+SCENARIO_INCIDENT_CODES = {
+    "guide_rail_misalignment": "INC-0001",
+    "sensor_calibration_drift": "INC-0002",
+}
 
 
 def _clean(value):
@@ -85,6 +96,7 @@ def build_telemetry_rows(df: pd.DataFrame, machine_id, run_id, origin: datetime)
                 float(record["line_speed"]),
                 _operating_mode(record),
                 str(record["scenario_id"]),
+                bool(_clean(record.get("anomaly_detected"))),
                 bool(fault_type),
                 fault_type,
                 float(severity) if fault_type else None,
@@ -132,8 +144,48 @@ def _lookup_id(cur, table: str, code_column: str, code: str):
     return row[0]
 
 
+def _create_incident(cur, df, scenario_id, machine_id, run_id, origin):
+    if "pressure_x_anomaly" not in df.columns or not df["pressure_x_anomaly"].any():
+        return None
+
+    first = df[df["pressure_x_anomaly"]].iloc[0]
+    incident_code = SCENARIO_INCIDENT_CODES.get(
+        scenario_id,
+        f"INC-{scenario_id[:8].upper()}",
+    )
+    incident_id = uuid.uuid5(NAMESPACE, f"incident:{scenario_id}")
+
+    cur.execute(
+        """
+        INSERT INTO incidents (
+            id, incident_code, machine_id, production_run_id,
+            detected_at, incident_type, severity, status,
+            actual_root_cause, metadata
+        ) VALUES (
+            %s, %s, %s, %s,
+            %s, 'abnormal_pressure', 'high', 'detected',
+            %s, %s
+        )
+        """,
+        (
+            incident_id,
+            incident_code,
+            machine_id,
+            run_id,
+            origin + timedelta(seconds=int(first["second"])),
+            SCENARIO_ROOT_CAUSES.get(scenario_id),
+            Jsonb({"scenario_id": scenario_id}),
+        ),
+    )
+    return incident_code
+
+
 def ingest_file(conn, path: Path, origin: datetime, machine_code: str):
     df = pd.read_parquet(path)
+    if "anomaly_detected" not in df.columns:
+        from simulator.anomaly import rolling_zscore_detector
+        df = rolling_zscore_detector(df)
+
     scenario_id = str(df["scenario_id"].iloc[0])
     started_at = origin
     ended_at = origin + timedelta(seconds=int(df["second"].max()))
@@ -143,6 +195,18 @@ def ingest_file(conn, path: Path, origin: datetime, machine_code: str):
     with conn.cursor() as cur:
         machine_id = _lookup_id(cur, "machines", "machine_code", machine_code)
 
+        cur.execute(
+            """
+            DELETE FROM documents
+            WHERE metadata->>'scenario_id' = %s
+              AND document_type = 'lessons_learned'
+            """,
+            (scenario_id,),
+        )
+        cur.execute(
+            "DELETE FROM incidents WHERE metadata->>'scenario_id' = %s",
+            (scenario_id,),
+        )
         cur.execute(
             "DELETE FROM telemetry WHERE scenario_id = %s",
             (scenario_id,),
@@ -229,24 +293,27 @@ def ingest_file(conn, path: Path, origin: datetime, machine_code: str):
                 timestamp, machine_id, production_run_id,
                 pressure_x, pressure_y, vibration, velocity,
                 temperature, motor_current, line_speed,
-                operating_mode, scenario_id,
+                operating_mode, scenario_id, anomaly_detected,
                 fault_active, fault_type, fault_severity,
                 metadata
             ) VALUES (
                 %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
-                %s, %s,
+                %s, %s, %s,
                 %s, %s, %s,
                 %s
             )
             """,
             rows,
         )
+        incident_code = _create_incident(
+            cur, df, scenario_id, machine_id, run_id, origin
+        )
         cur.execute(OBSERVED_VIEW_SQL)
 
     conn.commit()
-    return scenario_id, len(df)
+    return scenario_id, len(df), incident_code
 
 
 def main():
@@ -286,13 +353,14 @@ def main():
 
     with psycopg.connect(args.database_url) as conn:
         for path in files:
-            scenario_id, rows = ingest_file(
+            scenario_id, rows, incident_code = ingest_file(
                 conn,
                 path,
                 DEFAULT_ORIGIN,
                 args.machine_code,
             )
-            print(f"Ingested {scenario_id}: {rows} rows from {path}")
+            suffix = f" incident {incident_code}" if incident_code else ""
+            print(f"Ingested {scenario_id}: {rows} rows from {path}{suffix}")
 
 
 if __name__ == "__main__":

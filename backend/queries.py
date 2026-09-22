@@ -19,7 +19,7 @@ def list_telemetry(conn, scenario_id: str, limit: int) -> list[TelemetryPoint]:
         SELECT timestamp, machine_id, production_run_id,
                pressure_x, pressure_y, vibration, velocity,
                temperature, motor_current, line_speed,
-               operating_mode, scenario_id
+               operating_mode, scenario_id, anomaly_detected
         FROM telemetry_observed
         WHERE scenario_id = %s
         ORDER BY timestamp

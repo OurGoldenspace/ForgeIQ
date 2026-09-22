@@ -3,7 +3,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.models import Machine, MaintenanceEvent, TelemetryPoint
+from backend.models import Incident, Machine, MaintenanceEvent, TelemetryPoint
 
 
 FORBIDDEN = {
@@ -20,7 +20,7 @@ FORBIDDEN = {
 class ApiContractTests(unittest.TestCase):
 
     def test_response_models_omit_ground_truth(self):
-        for model in (Machine, TelemetryPoint, MaintenanceEvent):
+        for model in (Machine, TelemetryPoint, MaintenanceEvent, Incident):
             fields = set(model.model_fields)
             overlap = fields & FORBIDDEN
             self.assertEqual(overlap, set(), model.__name__)

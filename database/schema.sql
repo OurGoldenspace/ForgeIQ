@@ -117,6 +117,8 @@ CREATE TABLE telemetry (
 
     scenario_id TEXT,
 
+    anomaly_detected BOOLEAN DEFAULT FALSE,
+
     fault_active BOOLEAN DEFAULT FALSE,
 
     fault_type TEXT,
@@ -144,7 +146,8 @@ SELECT
     motor_current,
     line_speed,
     operating_mode,
-    scenario_id
+    scenario_id,
+    anomaly_detected
 FROM telemetry;
 
 CREATE TABLE maintenance_events (
@@ -245,6 +248,14 @@ CREATE TABLE incidents (
     root_cause_component_id UUID REFERENCES components(id),
 
     resolution TEXT,
+
+    review_decision TEXT
+        CHECK (
+            review_decision IS NULL
+            OR review_decision IN ('confirm', 'reject', 'modify')
+        ),
+    human_root_cause TEXT,
+    review_notes TEXT,
 
     metadata JSONB DEFAULT '{}'::jsonb
 );

@@ -55,6 +55,8 @@ uvicorn backend.main:app --reload --port 8000
 GET http://localhost:8000/machines
 GET http://localhost:8000/telemetry?scenario_id=guide_rail_misalignment
 GET http://localhost:8000/maintenance?scenario_id=guide_rail_misalignment
+GET http://localhost:8000/incidents?scenario_id=guide_rail_misalignment
+GET http://localhost:8000/incidents/INC-0001/investigation
 ```
 
 Dashboard:

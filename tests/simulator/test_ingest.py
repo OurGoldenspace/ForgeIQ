@@ -124,15 +124,15 @@ class IngestMappingTests(unittest.TestCase):
         last = rows[-1]
 
         self.assertEqual(first[10], "production")
-        self.assertFalse(first[12])
-        self.assertIsNone(first[13])
-        metadata = first[15].obj
+        self.assertFalse(first[13])
+        self.assertIsNone(first[14])
+        metadata = first[16].obj
         self.assertEqual(metadata["true_pressure_x"], 12.1)
 
         self.assertEqual(rows[1][10], "maintenance")
-        self.assertTrue(last[12])
-        self.assertEqual(last[13], "guide_rail_misalignment")
-        self.assertNotIn("_true_pressure_x", last[15].obj)
+        self.assertTrue(last[13])
+        self.assertEqual(last[14], "guide_rail_misalignment")
+        self.assertNotIn("_true_pressure_x", last[16].obj)
 
     def test_maintenance_window_from_telemetry(self):
         window = maintenance_window(_frame())
